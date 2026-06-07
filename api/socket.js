@@ -8,11 +8,27 @@ if (!global._wssInit) {
   const clients = new Map();
   let idCounter = 0;
 
+  // Безопасная отправка одному клиенту
+  function safeSend(ws, data) {
+    try {
+      if (ws.readyState === 1) {  // OPEN
+        ws.send(JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error('Send error:', err.message);
+    }
+  }
+
+  // Безопасная массовая рассылка
   function broadcast(data, exceptUserId = null) {
-    const payload = JSON.stringify(data);
+    const payload = JSON.stringify(data);  // сериализуем один раз
     clients.forEach((client, id) => {
       if (id !== exceptUserId && client.readyState === 1) {
-        client.send(payload);
+        try {
+          client.send(payload);
+        } catch (err) {
+          console.error(`Broadcast error to ${id}:`, err.message);
+        }
       }
     });
   }
@@ -30,20 +46,21 @@ if (!global._wssInit) {
 
       if (msg.type === 'join') {
         ws.name = msg.name || 'Anonymous';
+        // Список уже присутствующих
         const users = [];
         clients.forEach((c, id) => {
           if (id !== userId) users.push({ id, name: c.name });
         });
-        ws.send(JSON.stringify({ type: 'users', users }));
+        safeSend(ws, { type: 'users', users });
         broadcast({ type: 'user-joined', id: userId, name: ws.name }, userId);
       } else if (msg.type === 'signal') {
         const target = clients.get(msg.target);
-        if (target && target.readyState === 1) {
-          target.send(JSON.stringify({
+        if (target) {
+          safeSend(target, {
             type: 'signal',
             sender: userId,
             data: msg.data
-          }));
+          });
         }
       }
     });
@@ -56,12 +73,13 @@ if (!global._wssInit) {
 
     ws.on('error', (err) => {
       console.error(`WebSocket error for ${userId}:`, err.message);
+      // При ошибке лучше явно закрыть сокет, если это нужно
+      try { ws.close(); } catch (e) {}
+      clients.delete(userId);
     });
   });
 
   global._wss = wss;
-  global._clients = clients;
-  global._broadcast = broadcast;
 }
 
 module.exports = (req, res) => {
@@ -75,5 +93,5 @@ module.exports = (req, res) => {
       });
     });
   }
-  // Никакого res.end() — Vercel оставит соединение открытым
+  // Не вызываем res.end() – соединение остаётся активным
 };
