@@ -1,0 +1,7 @@
+{
+    "name": "voice-chat",
+    "private": true,
+    "dependencies": {
+      "ws": "^8.16.0"
+    }
+  }
