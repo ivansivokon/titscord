@@ -81,9 +81,18 @@
 
       // Connect WebSocket
       ws = new WebSocket(WS_URL);
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'join', name }));
-      };
+    ws.onopen = () => {
+    console.log('WebSocket opened successfully');
+    ws.send(JSON.stringify({ type: 'join', name }));
+    };
+    ws.onerror = (e) => {
+    console.error('WebSocket error:', e);
+    alert('Ошибка WebSocket');
+    };
+    ws.onclose = (e) => {
+    console.log('WebSocket closed:', e.code, e.reason);
+    alert('Соединение разорвано');
+    };
 
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
@@ -104,9 +113,6 @@
             break;
         }
       };
-
-      ws.onclose = () => alert('Соединение разорвано');
-      ws.onerror = () => alert('Ошибка WebSocket');
     });
 
     // ========== Controls ==========
