@@ -1,14 +1,12 @@
 const { Server } = require('ws');
 
-// Инициализируем WebSocket-сервер один раз при первом вызове функции
-if (!global._wssInitialized) {
-  global._wssInitialized = true;
-
-  const wss = new Server({ noServer: true });
+// Инициализируем WebSocket-сервер при первом обращении
+if (!global._wss) {
+  global._wss = new Server({ noServer: true });
   global.clients = new Map();
   let idCounter = 0;
 
-  wss.on('connection', (ws) => {
+  global._wss.on('connection', (ws) => {
     const userId = ++idCounter;
     global.clients.set(userId, ws);
     ws.userId = userId;
@@ -53,21 +51,12 @@ if (!global._wssInitialized) {
       }
     });
   }
-
-  global._wss = wss;
 }
 
 module.exports = (req, res) => {
-  // Если это не WebSocket-запрос — возвращаем 426
-  if (req.headers['upgrade']?.toLowerCase() !== 'websocket') {
-    res.statusCode = 426;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end('Upgrade Required');
-    return;
-  }
-
-  // Получаем серверный сокет Vercel и один раз вешаем обработчик upgrade
   const server = res.socket.server;
+
+  // Обработчик upgrade вешаем только один раз на серверный сокет
   if (!server._wsHandlerAttached) {
     server._wsHandlerAttached = true;
     server.on('upgrade', (request, socket, head) => {
@@ -77,5 +66,6 @@ module.exports = (req, res) => {
     });
   }
 
-  // Ничего не отправляем — соединение будет передано WebSocket-серверу
+  // Для serverless-функции на Vercel обязательно завершаем ответ
+  res.end();
 };
