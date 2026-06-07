@@ -1,6 +1,7 @@
 {
   "functions": {
     "api/socket.js": {
+      "runtime": "edge",
       "memory": 256,
       "maxDuration": 30
     }
